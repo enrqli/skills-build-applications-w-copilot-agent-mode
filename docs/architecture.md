@@ -30,13 +30,13 @@ OctoFit Tracker is a three-tier application for a school fitness program. The st
 
 Record your plan here before editing code.
 
-- Presentation tier decision:
-- Logic tier decision:
-- Data tier decision:
-- Activity tracking approach:
-- Team management approach:
-- Leaderboard approach:
-- Workout suggestions approach:
+- Presentation tier decision: Use the shared API client to render each capability, adding loading, empty, and accessible error states. Rerun frontend tests as each route is addressed.
+- Logic tier decision: Implement and verify activities and teams first, then leaderboard and workout suggestions. Keep invalid input on deliberate 4xx responses; rerun API tests after each capability.
+- Data tier decision: Add the schema invariants, then rerun the data tests. Preserve the currently passing seed behavior.
+- Activity tracking approach: Accept userId, teamId, type, and positive minutes; validate that both IDs are well-formed and reference existing records before creating anything. Store the references as user and team, calculate points as one point per minute, and set occurredAt on the server. Return deliberate 4xx responses for invalid input or missing references.
+- Team management approach: Require a non-empty name; retain the submitted name and mascot, and default members to an empty array. If member IDs are supplied, validate them and return member IDs in team responses to keep the API shape simple and consistent
+- Leaderboard approach: Sum activity points by team, sort highest total first, and assign ranks starting at 1. Include teams with no activities at zero points; use team name as a stable tie-breaker so equal scores have predictable ordering.
+- Workout suggestions approach: Find the user by email and use their recent activities to select a matching workout focus; fall back to their fitness goal when there’s no useful recent activity. Put the best match first and include a short reason. Return a 4xx for an unknown email, and avoid recommending a mismatched workout when there are no suitable suggestions.
 
 ## Test plan
 
