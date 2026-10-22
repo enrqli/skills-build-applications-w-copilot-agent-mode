@@ -1,25 +1,50 @@
 import { Types } from 'mongoose';
 import { Activity, Team, User, Workout } from '../models/index.js';
 
+function badRequest(message: string): never {
+  throw Object.assign(new Error(message), { status: 400 });
+}
+
+function readObject(input: unknown, message: string): Record<string, unknown> {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) badRequest(message);
+  return Object.fromEntries(Object.entries(input));
+}
+
+function readNonEmptyString(value: unknown, message: string): string {
+  if (typeof value !== 'string') badRequest(message);
+  const trimmed = value.trim();
+  if (trimmed.length === 0) badRequest(message);
+  return trimmed;
+}
+
+function readObjectId(value: unknown, message: string): string {
+  if (typeof value !== 'string' || !Types.ObjectId.isValid(value)) badRequest(message);
+  return value;
+}
+
+function readPositiveNumber(value: unknown, message: string): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) badRequest(message);
+  return value;
+}
+
+function readMemberIds(value: unknown): Types.ObjectId[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value) || !value.every((memberId: unknown) => typeof memberId === 'string' && Types.ObjectId.isValid(memberId))) {
+    badRequest('Team members must be an array of valid user IDs');
+  }
+  return value.map((memberId: string) => new Types.ObjectId(memberId));
+}
+
 export async function listActivities() {
   return Activity.find().lean();
 }
 
 export async function createActivity(input: unknown) {
-  const badRequest = (message: string): never => {
-    throw Object.assign(new Error(message), { status: 400 });
-  };
-  if (!input || typeof input !== 'object' || Array.isArray(input)) {
-    badRequest('Activity details are required');
-  }
-
-  const { userId, teamId, type, minutes } = input as Record<string, unknown>;
-  if (typeof userId !== 'string' || !Types.ObjectId.isValid(userId)) badRequest('A valid userId is required');
-  if (typeof teamId !== 'string' || !Types.ObjectId.isValid(teamId)) badRequest('A valid teamId is required');
-  if (typeof type !== 'string' || type.trim().length === 0) badRequest('An activity type is required');
-  if (typeof minutes !== 'number' || !Number.isFinite(minutes) || minutes <= 0) {
-    badRequest('Minutes must be a positive number');
-  }
+  const details = readObject(input, 'Activity details are required');
+  const userId = readObjectId(details.userId, 'A valid userId is required');
+  const teamId = readObjectId(details.teamId, 'A valid teamId is required');
+  const type = readNonEmptyString(details.type, 'An activity type is required');
+  const minutes = readPositiveNumber(details.minutes, 'Minutes must be a positive number');
 
   const [userExists, teamExists] = await Promise.all([
     User.exists({ _id: userId }),
@@ -30,7 +55,7 @@ export async function createActivity(input: unknown) {
   return Activity.create({
     user: userId,
     team: teamId,
-    type: type.trim(),
+    type,
     minutes,
     points: minutes,
     occurredAt: new Date(),
@@ -42,21 +67,15 @@ export async function listTeams() {
 }
 
 export async function createTeam(input: unknown) {
-  const badRequest = (message: string): never => {
-    throw Object.assign(new Error(message), { status: 400 });
-  };
-  if (!input || typeof input !== 'object' || Array.isArray(input)) {
-    badRequest('Team details are required');
-  }
-
-  const { name, mascot, members } = input as Record<string, unknown>;
-  if (typeof name !== 'string' || name.trim().length === 0) badRequest('A team name is required');
-  if (typeof mascot !== 'string' || mascot.trim().length === 0) badRequest('A team mascot is required');
+  const details = readObject(input, 'Team details are required');
+  const name = readNonEmptyString(details.name, 'A team name is required');
+  const mascot = readNonEmptyString(details.mascot, 'A team mascot is required');
+  const members = readMemberIds(details.members);
 
   return Team.create({
-    name: name.trim(),
-    mascot: mascot.trim(),
-    members: members as string[] | undefined,
+    name,
+    mascot,
+    members,
   });
 }
 
