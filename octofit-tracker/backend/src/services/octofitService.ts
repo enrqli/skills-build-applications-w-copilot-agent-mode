@@ -79,8 +79,41 @@ export async function getLeaderboard() {
   return totals.map((entry, index) => ({ ...entry, rank: index + 1 }));
 }
 
-export async function suggestWorkouts(_userEmail: string) {
-  return Workout.find().limit(1).lean();
+export async function suggestWorkouts(userEmail: string) {
+  const user = await User.findOne({ email: userEmail }).lean();
+  if (!user) throw Object.assign(new Error('User not found'), { status: 404 });
+
+  const [activities, workouts] = await Promise.all([
+    Activity.find({ user: user._id }).sort({ occurredAt: -1 }).lean(),
+    Workout.find().lean(),
+  ]);
+  const goal = user.fitnessGoal?.trim().toLowerCase();
+  const activityTypes = activities.map(({ type }) => type.trim().toLowerCase());
+
+  return workouts
+    .map((workout) => {
+      const focus = workout.focus.trim().toLowerCase();
+      const matchingActivityCount = activityTypes.filter((type) => type === focus).length;
+      const matchesGoal = focus === goal;
+      const recentActivity = activityTypes[0];
+      const reason = matchingActivityCount > 0
+        ? `Matches your recent ${recentActivity} activity${matchesGoal ? ` and ${goal} goal` : ''}.`
+        : matchesGoal && recentActivity
+          ? `Matches your ${goal} goal and recent ${recentActivity} activity.`
+          : matchesGoal
+            ? `Matches your ${goal} fitness goal.`
+            : recentActivity
+              ? `Suggested based on your recent ${recentActivity} activity.`
+              : 'Suggested workout.';
+
+      return {
+        ...workout,
+        reason,
+        score: matchingActivityCount + (matchesGoal ? 1 : 0),
+      };
+    })
+    .sort((first, second) => second.score - first.score)
+    .map(({ score: _score, ...suggestion }) => suggestion);
 }
 
 export { User };
