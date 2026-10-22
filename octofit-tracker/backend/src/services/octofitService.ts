@@ -10,7 +10,7 @@ export async function createActivity(input: unknown) {
     throw Object.assign(new Error('Activity input must be an object'), { status: 400 });
   }
 
-  const { userId, teamId, type, minutes } = input as Record<string, unknown>;
+  const { userId, teamId, type, minutes } = input as Record<string, unknown>; 
   if (
     typeof userId !== 'string' || !Types.ObjectId.isValid(userId) ||
     typeof teamId !== 'string' || !Types.ObjectId.isValid(teamId) ||
