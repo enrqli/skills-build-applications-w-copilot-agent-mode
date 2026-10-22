@@ -5,20 +5,20 @@ type ApiItem = Record<string, unknown>;
 type Props = {
   title: string;
   description: string;
-  endpoint: string;
+  loadData: () => Promise<Record<string, unknown>>;
   dataKey: string;
   emptyMessage: string;
   renderItem: (item: ApiItem, index: number) => ReactNode;
 };
 
-export function CapabilityCard({ title, description, endpoint, dataKey, emptyMessage, renderItem }: Props) {
+export function CapabilityCard({ title, description, loadData, dataKey, emptyMessage, renderItem }: Props) {
   const [items, setItems] = useState<ApiItem[]>([]);
   const [state, setState] = useState<'loading' | 'success' | 'error'>('loading');
 
   useEffect(() => {
     let isCurrent = true;
     setState('loading');
-    getJson<Record<string, unknown>>(endpoint)
+    loadData()
       .then((data) => {
         if (!isCurrent) return;
         const result = data[dataKey];
@@ -32,7 +32,7 @@ export function CapabilityCard({ title, description, endpoint, dataKey, emptyMes
     return () => {
       isCurrent = false;
     };
-  }, [dataKey, endpoint]);
+  }, [dataKey, loadData]);
 
   return (
     <section className="card h-100">
