@@ -61,22 +61,21 @@ export async function createTeam(input: unknown) {
 }
 
 export async function getLeaderboard() {
-  const totals = await Activity.aggregate([
-    { $group: { _id: '$team', totalPoints: { $sum: '$points' } } },
-    {
-      $lookup: {
-        from: Team.collection.name,
-        localField: '_id',
-        foreignField: '_id',
-        as: 'team',
-      },
-    },
-    { $unwind: '$team' },
-    { $sort: { totalPoints: -1 } },
-    { $project: { _id: 0, teamName: '$team.name', totalPoints: 1 } },
+  const [teams, totals] = await Promise.all([
+    Team.find().select('name').lean(),
+    Activity.aggregate([
+      { $group: { _id: '$team', totalPoints: { $sum: '$points' } } },
+    ]),
   ]);
+  const pointsByTeam = new Map(totals.map(({ _id, totalPoints }) => [String(_id), totalPoints]));
 
-  return totals.map((entry, index) => ({ ...entry, rank: index + 1 }));
+  return teams
+    .map((team) => ({
+      teamName: team.name,
+      totalPoints: pointsByTeam.get(team._id.toString()) ?? 0,
+    }))
+    .sort((first, second) => second.totalPoints - first.totalPoints || first.teamName.localeCompare(second.teamName))
+    .map((entry, index) => ({ ...entry, rank: index + 1 }));
 }
 
 export async function suggestWorkouts(userEmail: string) {
